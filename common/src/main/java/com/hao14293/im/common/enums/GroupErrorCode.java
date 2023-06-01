@@ -27,6 +27,7 @@ public enum GroupErrorCode implements ApplicationExceptionEnum {
     GROUP_MEMBER_IS_SPEAK(40017,"群成员被禁言"),
     GROUP_IS_DESTROY(40018,"群组已解散"),
     GROUP_LIST_ERROR(40019, "获取群组列表失败"),
+    GROUP_CREATE_ERROR(40020, "创建群组失败"),
     ;
     private int code;
     private String error;
