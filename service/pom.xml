@@ -12,6 +12,7 @@
         <java.version>1.8</java.version>
     </properties>
     <dependencies>
+        <!--   rabbitmq  -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
@@ -62,12 +63,6 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-boot-starter</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.jeffreyning</groupId>
-            <artifactId>mybatisplus-plus</artifactId>
-            <version>1.5.1-RELEASE</version>
         </dependency>
 
         <!-- common -->
