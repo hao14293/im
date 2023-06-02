@@ -55,6 +55,7 @@ spring:
 
 #        checkout-timeout: 0
 
+
 appConfig:
   privateKey: 123456
   zkAddr: 43.138.58.95:2181 # zk连接地址
@@ -97,10 +98,10 @@ mybatis-plus:
   global-config:
     db-config:
       update-strategy: NOT_EMPTY
-#mybatis:
-#  configuration:
+      logic-delete-field: isDelete
+      logic-delete-value: 1 #逻辑已删除
+      logic-not-delete-value: 0 #逻辑未删除
 
-#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 httpclient:
   maxTotal: 100
   defaultMaxPerRoute: 50
