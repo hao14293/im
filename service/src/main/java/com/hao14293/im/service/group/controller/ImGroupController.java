@@ -3,6 +3,7 @@ package com.hao14293.im.service.group.controller;
 import com.hao14293.im.common.ResponseVO;
 import com.hao14293.im.common.model.SyncReq;
 import com.hao14293.im.service.group.model.req.*;
+import com.hao14293.im.service.group.service.GroupMessageService;
 import com.hao14293.im.service.group.service.ImGroupService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -24,6 +25,9 @@ public class ImGroupController {
 
     @Resource
     private ImGroupService groupService;
+
+    @Resource
+    private GroupMessageService groupMessageService;
 
     @ApiOperation(value = "导入群组")
     @PostMapping("/importGroup")
@@ -89,13 +93,13 @@ public class ImGroupController {
         return groupService.muteGroup(req);
     }
 
-//    @ApiOperation("发送群聊消息")
-//    @RequestMapping("/sendMessage")
-//    public ResponseVO sendMessage(@RequestBody SendGroupMessageReq req, Integer appId, String identifier){
-//        req.setAppId(appId);
-//        req.setOperater(identifier);
-//        return ResponseVO.successResponse(groupMessageService.send(req));
-//    }
+    @ApiOperation("发送群聊消息")
+    @RequestMapping("/sendMessage")
+    public ResponseVO sendMessage(@RequestBody SendGroupMessageReq req, Integer appId, String identifier){
+        req.setAppId(appId);
+        req.setOperater(identifier);
+        return ResponseVO.successResponse(groupMessageService.send(req));
+    }
 
     @ApiOperation("同步加入的群组列表（增量拉取）")
     @RequestMapping("/syncJoinedGroup")

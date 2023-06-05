@@ -10,13 +10,17 @@ public enum CheckFriendShipTypeEnum {
     BOTH(2),
     ;
 
-    private int code;
+    private int type;
 
-    CheckFriendShipTypeEnum(int code) {
-        this.code = code;
+    CheckFriendShipTypeEnum(int type) {
+        this.type = type;
     }
 
-    public int getCode() {
-        return code;
+    public int getType() {
+        return type;
+    }
+
+    public void setType(int type) {
+        this.type = type;
     }
 }

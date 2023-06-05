@@ -21,23 +21,31 @@ import java.util.zip.Inflater;
  * @Date: 2023/6/1
  */
 public class SigAPI {
-
-    private final long appId;
-    private final String key;
+    final private long appId;
+    final private String key;
 
     public SigAPI(long appId, String key) {
         this.appId = appId;
         this.key = key;
     }
 
+    public static void main(String[] args) throws InterruptedException {
+        SigAPI asd = new SigAPI(10000, "123456");
+        String sign = asd.genUserSig("lld", 1000000);
+//        Thread.sleep(2000L);
+        JSONObject jsonObject = decodeUserSig(sign);
+        System.out.println("sign:" + sign);
+        System.out.println("decoder:" + jsonObject.toString());
+    }
+
     /**
-     * 解密方法
-     * @param userSig
-     * @return
+     * @description: 解密方法
+     * @param
+     * @return com.alibaba.fastjson.JSONObject
+     * @author lld
      */
     public static JSONObject decodeUserSig(String userSig) {
         JSONObject sigDoc = new JSONObject(true);
-
         try {
             byte[] decodeUrlByte = Base64URL.base64DecodeUrlNotReplace(userSig.getBytes());
             byte[] decompressByte = decompress(decodeUrlByte);
@@ -45,17 +53,21 @@ public class SigAPI {
 
             if (StringUtils.isNotBlank(decodeText)) {
                 sigDoc = JSONObject.parseObject(decodeText);
+
             }
-        } catch (IOException ex) {
+
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
+
         return sigDoc;
     }
 
     /**
      * 解压缩
-     * @param data
-     * @return
+     *
+     * @param data 待压缩的数据
+     * @return byte[] 解压缩后的数据
      */
     public static byte[] decompress(byte[] data) {
         byte[] output = new byte[0];
@@ -82,13 +94,21 @@ public class SigAPI {
                 e.printStackTrace();
             }
         }
+
         decompresser.end();
         return output;
     }
 
-    public String genUserSig(String userId, long expire) {
-        return genUserSig(userId, expire, null);
+
+    /**
+     * 【功能说明】用于签发 IM 服务中必须要使用的 UserSig 鉴权票据
+     * <p>
+     * 【参数说明】
+     */
+    public String genUserSig(String userid, long expire) {
+        return genUserSig(userid, expire, null);
     }
+
 
     private String hmacsha256(String identifier, long currTime, long expire, String base64Userbuf) {
         String contentToBeSigned = "TLS.identifier:" + identifier + "\n"
@@ -110,21 +130,22 @@ public class SigAPI {
         }
     }
 
-    private String genUserSig(String userId, long expire, byte[] userbuf) {
-        long curTime = System.currentTimeMillis() / 1000;
+    private String genUserSig(String userid, long expire, byte[] userbuf) {
+
+        long currTime = System.currentTimeMillis() / 1000;
 
         JSONObject sigDoc = new JSONObject();
-        sigDoc.put("TLS.identifier", userId);
-        sigDoc.put("TLS.appid", appId);
+        sigDoc.put("TLS.identifier", userid);
+        sigDoc.put("TLS.appId", appId);
         sigDoc.put("TLS.expire", expire);
-        sigDoc.put("TLS.expireTime", curTime);
+        sigDoc.put("TLS.expireTime", currTime);
 
         String base64UserBuf = null;
         if (null != userbuf) {
             base64UserBuf = Base64.getEncoder().encodeToString(userbuf).replaceAll("\\s*", "");
             sigDoc.put("TLS.userbuf", base64UserBuf);
         }
-        String sig = hmacsha256(userId, curTime, expire, base64UserBuf);
+        String sig = hmacsha256(userid, currTime, expire, base64UserBuf);
         if (sig.length() == 0) {
             return "";
         }
@@ -139,9 +160,10 @@ public class SigAPI {
                 0, compressedBytesLength)))).replaceAll("\\s*", "");
     }
 
-    public String getUserSig(String userId, long expire, long time, byte[] userbuf) {
+    public String genUserSig(String userid, long expire, long time,byte [] userbuf) {
+
         JSONObject sigDoc = new JSONObject();
-        sigDoc.put("TLS.identifier", userId);
+        sigDoc.put("TLS.identifier", userid);
         sigDoc.put("TLS.appId", appId);
         sigDoc.put("TLS.expire", expire);
         sigDoc.put("TLS.expireTime", time);
@@ -151,11 +173,10 @@ public class SigAPI {
             base64UserBuf = Base64.getEncoder().encodeToString(userbuf).replaceAll("\\s*", "");
             sigDoc.put("TLS.userbuf", base64UserBuf);
         }
-        String sig = hmacsha256(userId, time, expire, base64UserBuf);
+        String sig = hmacsha256(userid, time, expire, base64UserBuf);
         if (sig.length() == 0) {
             return "";
         }
-
         sigDoc.put("TLS.sig", sig);
         Deflater compressor = new Deflater();
         compressor.setInput(sigDoc.toString().getBytes(StandardCharsets.UTF_8));
@@ -167,3 +188,4 @@ public class SigAPI {
                 0, compressedBytesLength)))).replaceAll("\\s*", "");
     }
 }
+

@@ -8,6 +8,9 @@
   <modules>
     <module>common</module>
     <module>service</module>
+      <module>codec</module>
+      <module>tcp</module>
+      <module>message-store</module>
   </modules>
 
   <parent>
@@ -127,7 +130,8 @@
       <dependency>
         <groupId>org.hibernate</groupId>
         <artifactId>hibernate-validator</artifactId>
-        <version>${hibernate-validator.version}</version>
+<!--        <version>${hibernate-validator.version}</version>-->
+        <version>6.1.5.Final</version>
       </dependency>
 
       <!-- redisson -->
@@ -176,13 +180,11 @@
         <groupId>com.netflix.feign</groupId>
         <artifactId>feign-core</artifactId>
         <version>${feign.version}</version>
-        <scope>runtime</scope>
       </dependency>
       <dependency>
         <groupId>com.netflix.feign</groupId>
         <artifactId>feign-jackson</artifactId>
         <version>${feign.version}</version>
-        <scope>runtime</scope>
       </dependency>
 
     </dependencies>

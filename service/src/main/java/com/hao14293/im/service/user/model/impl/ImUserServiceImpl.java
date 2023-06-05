@@ -1,10 +1,16 @@
-package com.hao14293.im.service.user.service.impl;
+package com.hao14293.im.service.user.model.impl;
 
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hao14293.im.codec.pack.user.UserModifyPack;
 import com.hao14293.im.common.ResponseVO;
+import com.hao14293.im.common.config.AppConfig;
+import com.hao14293.im.common.constant.Constants;
+import com.hao14293.im.common.enums.Command.UserEventCommand;
 import com.hao14293.im.common.enums.DelFlagEnum;
 import com.hao14293.im.common.enums.UserErrorCode;
 import com.hao14293.im.common.exception.ApplicationException;
+import com.hao14293.im.service.group.service.ImGroupService;
 import com.hao14293.im.service.user.mapper.ImUserDataMapper;
 import com.hao14293.im.service.user.model.entity.ImUserDataEntity;
 import com.hao14293.im.service.user.model.req.*;
@@ -12,7 +18,10 @@ import com.hao14293.im.service.user.model.resp.DeleteUserResp;
 import com.hao14293.im.service.user.model.resp.GetUserInfoResp;
 import com.hao14293.im.service.user.model.resp.ImportUserResp;
 import com.hao14293.im.service.user.service.ImUserService;
+import com.hao14293.im.service.utils.CallbackService;
+import com.hao14293.im.service.utils.MessageProducer;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +29,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Author: hao14293
@@ -30,6 +40,21 @@ public class ImUserServiceImpl implements ImUserService {
 
     @Resource
     private ImUserDataMapper imUserDataMapper;
+
+    @Resource
+    private AppConfig appConfig;
+
+    @Resource
+    private CallbackService callbackService;
+
+    @Resource
+    private MessageProducer messageProducer;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private ImGroupService imGroupService;
 
     /**
      * 导入用户
@@ -182,9 +207,18 @@ public class ImUserServiceImpl implements ImUserService {
 
         if (update1 == 1) {
 
-            // TODO 通知
+            // 通知
+            UserModifyPack userModifyPack = new UserModifyPack();
+            BeanUtils.copyProperties(req, userModifyPack);
+            messageProducer.sendToUser(req.getUserId(), req.getClientType(), req.getImei(),
+                    UserEventCommand.USER_MODIFY, userModifyPack, req.getAppId());
 
-            // TODO 回调
+            // 回调
+            if(appConfig.isModifyUserAfterCallback()){
+                // 开启修改用户信息回调
+                callbackService.callback(req.getAppId(), Constants.CallbackCommand.ModifyUserAfter
+                        , JSONObject.toJSONString(req));
+            }
 
             return ResponseVO.successResponse();
         }
@@ -193,7 +227,15 @@ public class ImUserServiceImpl implements ImUserService {
 
     @Override
     public ResponseVO getUserSequence(GetUserSequenceReq req) {
-        // TODO
-        return null;
+        // 这里的map中有  好友关系的 好友申请的  会话的，没有群组的，因为之前设计的时候，
+        // 就考虑到如果一个群组里面的任何成员，发生了修改都会去修改
+        // 该群的seq值，每次修改都要去redis中去更新seq，太繁琐了
+        // 但是我觉得可以用那个Redis绝对自增序列的那个，不用非得从数据库中获取最新的，可能是数据库的比redis中的更加精准，
+        // 我这个想法有待考量
+        Map<Object, Object> map = stringRedisTemplate.opsForHash().entries(
+                req.getAppId() + ":" + Constants.RedisConstants.SeqPrefix + ":" + req.getUserId());
+        Long groupSeq = imGroupService.getUserGroupMaxSeq(req.getUserId(), req.getAppId());
+        map.put(Constants.SeqConstants.Group, groupSeq);
+        return ResponseVO.successResponse(map);
     }
 }

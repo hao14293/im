@@ -1,21 +1,33 @@
 package com.hao14293.im.service.group.service.impl;
 
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hao14293.im.codec.pack.group.CreateGroupPack;
+import com.hao14293.im.codec.pack.group.DestroyGroupPack;
+import com.hao14293.im.codec.pack.group.UpdateGroupInfoPack;
 import com.hao14293.im.common.ResponseVO;
+import com.hao14293.im.common.config.AppConfig;
+import com.hao14293.im.common.constant.Constants;
+import com.hao14293.im.common.enums.Command.GroupEventCommand;
 import com.hao14293.im.common.enums.GroupErrorCode;
 import com.hao14293.im.common.enums.GroupMemberRoleEnum;
 import com.hao14293.im.common.enums.GroupStatusEnum;
 import com.hao14293.im.common.enums.GroupTypeEnum;
 import com.hao14293.im.common.exception.ApplicationException;
+import com.hao14293.im.common.model.ClientInfo;
 import com.hao14293.im.common.model.SyncReq;
 import com.hao14293.im.common.model.SyncResp;
 import com.hao14293.im.service.group.entity.ImGroupEntity;
 import com.hao14293.im.service.group.mapper.ImGroupMapper;
+import com.hao14293.im.service.group.model.callback.DestroyGroupCallbackDto;
 import com.hao14293.im.service.group.model.req.*;
 import com.hao14293.im.service.group.model.resp.GetGroupResp;
 import com.hao14293.im.service.group.model.resp.GetRoleInGroupResp;
 import com.hao14293.im.service.group.service.ImGroupMemberService;
 import com.hao14293.im.service.group.service.ImGroupService;
+import com.hao14293.im.service.seq.RedisSeq;
+import com.hao14293.im.service.utils.CallbackService;
+import com.hao14293.im.service.utils.GroupMessageProducer;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -40,6 +52,18 @@ public class ImGroupServiceImpl implements ImGroupService {
 
     @Resource
     private ImGroupMemberService imGroupMemberService;
+
+    @Resource
+    private AppConfig appConfig;
+
+    @Resource
+    private CallbackService callbackService;
+
+    @Resource
+    private GroupMessageProducer groupMessageProducer;
+
+    @Resource
+    private RedisSeq redisSeq;
 
     /**
      * 导入群
@@ -110,6 +134,8 @@ public class ImGroupServiceImpl implements ImGroupService {
         }
         ImGroupEntity imGroupEntity = new ImGroupEntity();
         // TODO redis seq
+        long seq = redisSeq.doGetSeq(req.getAppId() + ":" + Constants.SeqConstants.Group);
+
         BeanUtils.copyProperties(req, imGroupEntity);
 
         imGroupEntity.setCreateTime(System.currentTimeMillis());
@@ -133,8 +159,16 @@ public class ImGroupServiceImpl implements ImGroupService {
         }
 
         // TODO 创建群后回调
-
+        if(appConfig.isCreateGroupAfterCallback()){
+            callbackService.callback(req.getAppId(), Constants.CallbackCommand.CreateGroupAfter,
+                    JSONObject.toJSONString(imGroupEntity));
+        }
         // TODO TCP 通知每个群成员
+        CreateGroupPack createGroupPack = new CreateGroupPack();
+        BeanUtils.copyProperties(imGroupEntity, createGroupPack);
+        createGroupPack.setSequence(seq);
+        groupMessageProducer.producer(req.getOperater(), GroupEventCommand.CREATED_GROUP, createGroupPack
+                , new ClientInfo(req.getAppId(), req.getClientType(), req.getImei()));
 
         return ResponseVO.successResponse();
     }
@@ -175,9 +209,10 @@ public class ImGroupServiceImpl implements ImGroupService {
 
         ImGroupEntity update = new ImGroupEntity();
         // TODO redis 获取 seq
+        long seq = redisSeq.doGetSeq(req.getAppId() + ":" + Constants.SeqConstants.Group);
 
         BeanUtils.copyProperties(req, update);
-        // TODO 将seq赋值给update
+        update.setSequence(seq);
         update.setUpdateTime(System.currentTimeMillis());
         int row = imGroupMapper.update(update, lqw);
 
@@ -186,8 +221,16 @@ public class ImGroupServiceImpl implements ImGroupService {
         }
 
         // TODO 回调函数
-
+        if(appConfig.isModifyGroupAfterCallback()){
+            callbackService.callback(req.getAppId(), Constants.CallbackCommand.UpdateGroupAfter,
+                    JSONObject.toJSONString(imGroupMapper.selectOne(lqw)));
+        }
         // TODO TCP 通知
+        UpdateGroupInfoPack pack = new UpdateGroupInfoPack();
+        BeanUtils.copyProperties(req, pack);
+        pack.setSequence(seq);
+        groupMessageProducer.producer(req.getOperater(), GroupEventCommand.UPDATED_GROUP,
+                pack, new ClientInfo(req.getAppId(), req.getClientType(), req.getImei()));
 
         return ResponseVO.successResponse();
     }
@@ -287,7 +330,7 @@ public class ImGroupServiceImpl implements ImGroupService {
 
         ImGroupEntity update = new ImGroupEntity();
         // TODO redis seq
-
+        long seq = redisSeq.doGetSeq(req.getAppId() + ":" + Constants.SeqConstants.Group);
         // 群组删除应该是软删除
         update.setStatus(GroupStatusEnum.DESTROY.getCode());
 
@@ -297,8 +340,20 @@ public class ImGroupServiceImpl implements ImGroupService {
         }
 
         // 回调
+        if(appConfig.isDestroyGroupAfterCallback()){
+            DestroyGroupCallbackDto destroyGroupCallbackDto = new DestroyGroupCallbackDto();
+            destroyGroupCallbackDto.setGroupId(req.getGroupId());
+            callbackService.callback(req.getAppId(), Constants.CallbackCommand.DestoryGroupAfter,
+                    JSONObject.toJSONString(destroyGroupCallbackDto));
+        }
 
         // TCP 通知
+        DestroyGroupPack pack = new DestroyGroupPack();
+        pack.setGroupId(req.getGroupId());
+        pack.setSequence(seq);
+        groupMessageProducer.producer(req.getOperater(),
+                GroupEventCommand.DESTROY_GROUP, pack, new ClientInfo(req.getAppId()
+                        , req.getClientType(), req.getImei()));
 
         return ResponseVO.successResponse();
     }
@@ -418,7 +473,7 @@ public class ImGroupServiceImpl implements ImGroupService {
                 resp.setDataList(list);
 
                 // TODO 设置最大seq
-                Long maxSeq  = 1L;
+                Long maxSeq = imGroupMapper.getGroupMaxSeq(data, req.getAppId());
                 resp.setCompleted(maxSeqEntity.getSequence() >= maxSeq);
                 return ResponseVO.successResponse(resp);
             }

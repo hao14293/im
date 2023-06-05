@@ -12,7 +12,7 @@ import java.util.List;
 @Data
 public class UserOnlineStatusResp {
 
-    private List<UserSession> sessions;
+    private List<UserSession> session;
 
     private String customText;
 

@@ -16,7 +16,7 @@ public enum DeviceMultiLoginEnum {
     /**
      * 三端登录
      */
-    Three(3, "DeviceMultiLoginEnum_THREE"),
+    THREE(3, "DeviceMultiLoginEnum_THREE"),
     /**
      * 多端同时
      */

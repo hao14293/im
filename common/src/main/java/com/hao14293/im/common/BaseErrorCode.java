@@ -9,7 +9,7 @@ import com.hao14293.im.common.exception.ApplicationExceptionEnum;
  */
 public enum BaseErrorCode implements ApplicationExceptionEnum {
     SUCCESS(200, "success"),
-    SYSTEMCTL_ERROR(90000, "服务器内部错误，请联系管理员"),
+    SYSTEM_ERROR(90000, "服务器内部错误，请联系管理员"),
     PARAMETER_ERROR(90001, "参数检验错误")
     ;
 
